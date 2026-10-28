@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='v1.3.12 (2026.10.27)'
+VERSION='v1.3.13 (2026.10.28)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
@@ -22,7 +22,10 @@ NODE_TAG=("xtls-reality" "hysteria2" "tuic" "ShadowTLS" "shadowsocks" "trojan" "
 CONSECUTIVE_PORTS=${#PROTOCOL_LIST[@]}
 CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.2020111.xyz" "xn--b6gac.eu.org" "cf.090227.xyz")
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
-DEFAULT_NEWEST_VERSION='1.13.0-rc.4'
+SING_BOX_CORE_REPO='kjxv/sing-box'
+SING_BOX_CORE_VERSION='1.15.0-alpha.13'
+SING_BOX_CORE_RELEASE_BASE="https://github.com/${SING_BOX_CORE_REPO}/releases/download"
+DEFAULT_NEWEST_VERSION="$SING_BOX_CORE_VERSION"
 STEP_NUM=0      # 当前步骤编号（安装流程中动态递增）
 TOTAL_STEPS=''  # 总步骤数（协议确定后动态计算）
 
@@ -39,8 +42,8 @@ mkdir -p "$TEMP_DIR"
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="Fix the remote rule-set HTTP client configuration required by Sing-box 1.14+, automatically repair existing installations after an upgrade, and keep the sb shortcut on the kjxv fork."
-C[1]="修复 Sing-box 1.14+ 远程规则集所需的 HTTP 客户端配置；升级后自动修复已有安装；sb 快捷命令固定使用 kjxv 分支。"
+E[1]="Pin Sing-box core 1.15.0-alpha.13 and download all supported Linux builds from the kjxv mirror release, independent of upstream core updates or availability."
+C[1]="固定 Sing-box 内核 1.15.0-alpha.13；全部受支持的 Linux 架构从 kjxv 镜像 Release 下载，不受上游内核更新或可用性影响。"
 E[2]="Downloading Sing-box. Please wait a seconds ..."
 C[2]="下载 Sing-box 中，请稍等 ..."
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -380,7 +383,7 @@ check_cdn() {
   local PROXY CODE PID CMD
   local _WAIT_COUNT=120
   local PIDS=()
-  local API_URL='https://api.github.com/repos/SagerNet/sing-box/releases'
+  local API_URL="https://api.github.com/repos/${SING_BOX_CORE_REPO}/releases"
 
   # 确定下载工具：优先 wget，次选 curl
   if command -v wget >/dev/null 2>&1; then
@@ -1213,7 +1216,7 @@ check_install() {
       local SB_DIR="$TEMP_DIR/sing-box-$ONLINE-linux-$SING_BOX_ARCH"
       local SB_BIN="$SB_DIR/sing-box"
       wget --no-check-certificate --continue \
-        ${GH_PROXY}https://github.com/SagerNet/sing-box/releases/download/v$ONLINE/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz \
+        ${GH_PROXY}${SING_BOX_CORE_RELEASE_BASE}/v$ONLINE/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz \
         -qO- | tar xz -C $TEMP_DIR 2>/dev/null
       [ -s "$SB_BIN" ] && [ -x "$SB_BIN" ] && mv "$SB_BIN" "$TEMP_DIR/sing-box" && chmod +x "$TEMP_DIR/sing-box"
     } &
@@ -1412,21 +1415,14 @@ check_system_info() {
   fi
 }
 
-# 获取 sing-box 最新版本
+# 获取 kjxv 仓库固定的 sing-box 内核版本
 get_sing_box_version() {
-  # FORCE_VERSION 用于在 sing-box 某个主程序出现 bug 时，强制为指定版本，以防止运行出错
+  # force_version 允许维护者在不改脚本的情况下切换已镜像版本；读取失败时使用脚本内置版本。
   local FORCE_VERSION=$(wget --no-check-certificate --tries=2 --timeout=3 -qO- ${GH_PROXY}https://raw.githubusercontent.com/kjxv/sing-box/refs/heads/main/force_version | sed 's/^[vV]//g; s/\r//g')
   if grep -q '.' <<< "$FORCE_VERSION"; then
     local RESULT_VERSION="$FORCE_VERSION"
   else
-    # 先判断 github api 返回 http 状态码是否为 200，有时候 IP 会被限制，导致获取不到最新版本
-    local API_RESPONSE=$(wget --no-check-certificate --server-response --tries=2 --timeout=3 -qO- "${GH_PROXY}https://api.github.com/repos/SagerNet/sing-box/releases" 2>&1 | grep -E '^[ ]+HTTP/|tag_name')
-    if grep -q 'HTTP.* 200' <<< "$API_RESPONSE"; then
-      local VERSION_LATEST=$(awk -F '["v-]' '/tag_name/{print $5}' <<< "$API_RESPONSE" | sort -Vr | sed -n '1p')
-      local RESULT_VERSION=$(wget --no-check-certificate --tries=2 --timeout=3 -qO- ${GH_PROXY}https://api.github.com/repos/SagerNet/sing-box/releases | awk -F '["v]' -v var="tag_name.*$VERSION_LATEST" '$0 ~ var {print $5; exit}')
-    else
-      local RESULT_VERSION="$DEFAULT_NEWEST_VERSION"
-    fi
+    local RESULT_VERSION="$DEFAULT_NEWEST_VERSION"
   fi
   echo "$RESULT_VERSION"
 }
@@ -4895,7 +4891,7 @@ version() {
 
   if [ "${UPDATE,,}" = 'y' ]; then
     check_system_info
-    wget --no-check-certificate --continue ${GH_PROXY}https://github.com/SagerNet/sing-box/releases/download/v$ONLINE/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz -qO- | tar xz -C $TEMP_DIR sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box
+    wget --no-check-certificate --continue ${GH_PROXY}${SING_BOX_CORE_RELEASE_BASE}/v$ONLINE/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz -qO- | tar xz -C $TEMP_DIR sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box
 
     if [ -s $TEMP_DIR/sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box ]; then
       cmd_systemctl disable sing-box

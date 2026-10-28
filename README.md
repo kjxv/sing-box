@@ -24,6 +24,8 @@
 
 * * *
 ## 1.更新信息
+2026.10.28 v1.3.13 Pin Sing-box core `1.15.0-alpha.13`; mirror all six supported Linux archives (AMD64, ARM64, ARMv7 and musl variants) in the `kjxv/sing-box` Release; new installations and upgrades no longer query or download the core from `SagerNet/sing-box`. 固定 Sing-box 内核 `1.15.0-alpha.13`；在 `kjxv/sing-box` Release 镜像脚本支持的全部 6 个 Linux 压缩包（AMD64、ARM64、ARMv7 及其 musl 版本）；新装与升级不再查询或从 `SagerNet/sing-box` 下载内核。
+
 2026.10.27 v1.3.12 Fix the startup failure on Sing-box 1.14+ when a remote rule-set has no explicit HTTP client; automatically add `http_clients` and `route.default_http_client` for new installations and upgrades; keep the `sb` shortcut on the kjxv fork. 修复 Sing-box 1.14+ 在远程规则集未显式指定 HTTP 客户端时无法启动的问题；新装和升级时自动补充 `http_clients` 与 `route.default_http_client`；`sb` 快捷命令固定使用 kjxv 分支。
 
 2026.05.06 v1.3.11 1. Generate v2rayn:// dedicated links for Tuic subscriptions; 2. Generate v2rayn:// dedicated links for AnyTLS subscriptions; 3. Generate v2rayn:// dedicated links for naive http2 and quic modes. Thanks to @DHR60; 1. 为 Tuic 订阅生成 v2rayn:// 专属链接; 2. 为 AnyTLS 订阅生成 v2rayn:// 专属链接; 3. 为 naive http2 和 quic 模式生成 v2rayn:// 专属链接，感谢 @DHR60
@@ -165,6 +167,8 @@ sb
 ```
 
 > **Sing-box 1.14+ 兼容说明：** 如果服务日志出现 `implicit default HTTP client ... is deprecated`，说明配置中使用了远程规则集，但没有显式指定下载客户端。v1.3.12 会在新装、升级和再次运行脚本时自动补充兼容配置；Sing-box 1.13 及更早版本不会加载该配置。已经手动设置 `route.default_http_client` 的用户配置会被保留。
+
+> **独立内核镜像：** v1.3.13 固定使用 Sing-box `1.15.0-alpha.13`，并从本仓库同名 Release 下载内核。只有维护者明确更新 `force_version` 和对应 Release 附件后，部署版本才会变化，不再跟随上游自动更新。
 
   | Option 参数      | Remark 备注 |
   | --------------- | ------ |
