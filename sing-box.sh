@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='v1.3.11 (2026.05.06)'
+VERSION='v1.3.12 (2026.10.27)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
@@ -39,8 +39,8 @@ mkdir -p "$TEMP_DIR"
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. Generate v2rayn:// dedicated links for Tuic subscriptions; 2. Generate v2rayn:// dedicated links for AnyTLS subscriptions; 3. Generate v2rayn:// dedicated links for naive http2 and quic modes. Thanks to [DHR60]; 4. Added native protocol. For the sing-box core, you must use the -glibc or -musl version according to the requirements; refer to the official documentation for details: https://sing-box.sagernet.org/configuration/outbound/naive/"
-C[1]="1. 为 Tuic 订阅生成 v2rayn:// 专属链接; 2. 为 AnyTLS 订阅生成 v2rayn:// 专属链接; 3. 为 naive http2 和 quic 模式生成 v2rayn:// 专属链接，感谢 [DHR60]; 4. 增加 native 协议，sing-box 内核需要按说明使用-glibc 或者 -musl 版本，详见官方说明 https://sing-box.sagernet.org/zh/configuration/outbound/naive/"
+E[1]="Fix the remote rule-set HTTP client configuration required by Sing-box 1.14+, automatically repair existing installations after an upgrade, and keep the sb shortcut on the kjxv fork."
+C[1]="修复 Sing-box 1.14+ 远程规则集所需的 HTTP 客户端配置；升级后自动修复已有安装；sb 快捷命令固定使用 kjxv 分支。"
 E[2]="Downloading Sing-box. Please wait a seconds ..."
 C[2]="下载 Sing-box 中，请稍等 ..."
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -1415,7 +1415,7 @@ check_system_info() {
 # 获取 sing-box 最新版本
 get_sing_box_version() {
   # FORCE_VERSION 用于在 sing-box 某个主程序出现 bug 时，强制为指定版本，以防止运行出错
-  local FORCE_VERSION=$(wget --no-check-certificate --tries=2 --timeout=3 -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sing-box/refs/heads/main/force_version | sed 's/^[vV]//g; s/\r//g')
+  local FORCE_VERSION=$(wget --no-check-certificate --tries=2 --timeout=3 -qO- ${GH_PROXY}https://raw.githubusercontent.com/kjxv/sing-box/refs/heads/main/force_version | sed 's/^[vV]//g; s/\r//g')
   if grep -q '.' <<< "$FORCE_VERSION"; then
     local RESULT_VERSION="$FORCE_VERSION"
   else
@@ -1429,6 +1429,85 @@ get_sing_box_version() {
     fi
   fi
   echo "$RESULT_VERSION"
+}
+
+# 判断当前 Sing-box 版本是否达到指定版本
+sing_box_version_at_least() {
+  local CURRENT_VERSION="${1#v}"
+  local REQUIRED_VERSION="${2#v}"
+
+  [ -n "$CURRENT_VERSION" ] && [ "$(printf '%s\n%s\n' "$REQUIRED_VERSION" "$CURRENT_VERSION" | sort -V | head -n 1)" = "$REQUIRED_VERSION" ]
+}
+
+# Sing-box 1.14+ 要求远程规则集显式指定 HTTP 客户端。
+# 返回 10 表示配置有变化，调用方可据此决定是否重启服务。
+ensure_remote_ruleset_http_client() {
+  local SING_BOX_BIN="${1:-${WORK_DIR}/sing-box}"
+  local CONFIG_DIR="${2:-${WORK_DIR}/conf}"
+  local MANAGED_CONFIG="${CONFIG_DIR}/00_http_client.json"
+  local CURRENT_VERSION=''
+  local EXISTING_DEFAULT=''
+  local CONFIG_FILE=''
+
+  [ -x "$SING_BOX_BIN" ] || return 0
+  [ -d "$CONFIG_DIR" ] || return 0
+  CURRENT_VERSION=$($SING_BOX_BIN version 2>/dev/null | awk '/version/{print $NF; exit}')
+
+  # 旧版本不支持 http_clients；降级时仅清理本脚本管理的兼容文件。
+  if ! sing_box_version_at_least "$CURRENT_VERSION" '1.14.0'; then
+    if [ -e "$MANAGED_CONFIG" ]; then
+      rm -f "$MANAGED_CONFIG"
+      return 10
+    fi
+    return 0
+  fi
+
+  # 没有远程规则集时无需额外配置。
+  if ! grep -RqsE '"type"[[:space:]]*:[[:space:]]*"remote"' "$CONFIG_DIR"; then
+    if [ -e "$MANAGED_CONFIG" ]; then
+      rm -f "$MANAGED_CONFIG"
+      return 10
+    fi
+    return 0
+  fi
+
+  # 尊重用户已经手动设置的 default_http_client。
+  for CONFIG_FILE in "$CONFIG_DIR"/*.json; do
+    [ -e "$CONFIG_FILE" ] || continue
+    [ "$CONFIG_FILE" = "$MANAGED_CONFIG" ] && continue
+    if grep -qs '"default_http_client"' "$CONFIG_FILE"; then
+      EXISTING_DEFAULT=1
+      break
+    fi
+  done
+  if [ -n "$EXISTING_DEFAULT" ]; then
+    if [ -e "$MANAGED_CONFIG" ]; then
+      rm -f "$MANAGED_CONFIG"
+      return 10
+    fi
+    return 0
+  fi
+
+  cat > "${MANAGED_CONFIG}.tmp" << 'EOF'
+{
+    "http_clients":[
+        {
+            "tag":"ruleset-direct"
+        }
+    ],
+    "route":{
+        "default_http_client":"ruleset-direct"
+    }
+}
+EOF
+
+  if [ -e "$MANAGED_CONFIG" ] && cmp -s "${MANAGED_CONFIG}.tmp" "$MANAGED_CONFIG"; then
+    rm -f "${MANAGED_CONFIG}.tmp"
+    return 0
+  fi
+
+  mv "${MANAGED_CONFIG}.tmp" "$MANAGED_CONFIG"
+  return 10
 }
 
 # 添加端口跳跃
@@ -3633,6 +3712,7 @@ install_sing-box() {
   echo "${L^^}" > ${WORK_DIR}/language
   cp $TEMP_DIR/sing-box $TEMP_DIR/jq ${WORK_DIR}
   [ -x $TEMP_DIR/qrencode ] && cp $TEMP_DIR/qrencode ${WORK_DIR}
+  ensure_remote_ruleset_http_client ${WORK_DIR}/sing-box ${WORK_DIR}/conf || true
 
   # 生成 sing-box systemd 配置文件
   sing-box_systemd
@@ -4376,7 +4456,7 @@ create_shortcut() {
   cat > ${WORK_DIR}/sb.sh << EOF
 #!/usr/bin/env bash
 
-bash <(wget --no-check-certificate -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) \$@
+bash <(wget --no-check-certificate -qO- https://raw.githubusercontent.com/kjxv/sing-box/main/sing-box.sh) "\$@"
 EOF
   chmod +x ${WORK_DIR}/sb.sh
   ln -sf ${WORK_DIR}/sb.sh /usr/bin/sb
@@ -4741,6 +4821,7 @@ change_protocols() {
 
   # 生成各协议的 json 文件
   sing-box_json change
+  ensure_remote_ruleset_http_client ${WORK_DIR}/sing-box ${WORK_DIR}/conf || true
 
   # 如有需要，安装和删除 Argo 服务
   if ls ${WORK_DIR}/conf/*-ws*inbounds.json >/dev/null 2>&1; then
@@ -4825,6 +4906,7 @@ version() {
 
       # 安装新版本
       chmod +x $TEMP_DIR/sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box && mv $TEMP_DIR/sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box ${WORK_DIR}/sing-box
+      ensure_remote_ruleset_http_client ${WORK_DIR}/sing-box ${WORK_DIR}/conf || true
       cmd_systemctl enable sing-box
       sleep 2
 
@@ -4837,6 +4919,7 @@ version() {
         # 新版本运行失败，恢复旧版本
         warning "\n $(text 104) \n"
         mv ${WORK_DIR}/sing-box.bak ${WORK_DIR}/sing-box
+        ensure_remote_ruleset_http_client ${WORK_DIR}/sing-box ${WORK_DIR}/conf || true
         cmd_systemctl enable sing-box
         sleep 2
 
@@ -5104,6 +5187,18 @@ check_arch
 check_dependencies
 check_system_ip
 check_install
+
+# 兼容从旧脚本升级到 Sing-box 1.14+ 后因远程规则集 HTTP 客户端缺失而无法启动的情况。
+if [[ "${STATUS[0]}" =~ $(text 27)|$(text 28) ]]; then
+  ensure_remote_ruleset_http_client ${WORK_DIR}/sing-box ${WORK_DIR}/conf
+  HTTP_CLIENT_CONFIG_STATUS=$?
+  if [ "$HTTP_CLIENT_CONFIG_STATUS" = '10' ] && ${WORK_DIR}/sing-box check -C ${WORK_DIR}/conf >/dev/null 2>&1; then
+    cmd_systemctl restart sing-box
+    sleep 2
+    check_install
+  fi
+fi
+
 if [ "$NONINTERACTIVE_INSTALL" = 'noninteractive_install' ]; then
   # 预设默认值
   IS_SUB=${IS_SUB:-'no_sub'}

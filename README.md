@@ -24,6 +24,8 @@
 
 * * *
 ## 1.更新信息
+2026.10.27 v1.3.12 Fix the startup failure on Sing-box 1.14+ when a remote rule-set has no explicit HTTP client; automatically add `http_clients` and `route.default_http_client` for new installations and upgrades; keep the `sb` shortcut on the kjxv fork. 修复 Sing-box 1.14+ 在远程规则集未显式指定 HTTP 客户端时无法启动的问题；新装和升级时自动补充 `http_clients` 与 `route.default_http_client`；`sb` 快捷命令固定使用 kjxv 分支。
+
 2026.05.06 v1.3.11 1. Generate v2rayn:// dedicated links for Tuic subscriptions; 2. Generate v2rayn:// dedicated links for AnyTLS subscriptions; 3. Generate v2rayn:// dedicated links for naive http2 and quic modes. Thanks to @DHR60; 1. 为 Tuic 订阅生成 v2rayn:// 专属链接; 2. 为 AnyTLS 订阅生成 v2rayn:// 专属链接; 3. 为 naive http2 和 quic 模式生成 v2rayn:// 专属链接，感谢 @DHR60
 
 2026.04.25 v1.3.10 Added native protocol, but client support is extremely limited, with Shadowrocket offering the best compatibility. For the sing-box core, you must use the -glibc or -musl version according to the requirements; refer to the official documentation for details: https://sing-box.sagernet.org/configuration/outbound/naive/; 增加 native 协议，支持该协议的客户端极少，Shadowrocket 支持最好。sing-box 内核需要按说明使用-glibc 或者 -musl 版本，详见官方说明 https://sing-box.sagernet.org/zh/configuration/outbound/naive/
@@ -154,13 +156,15 @@
 
 * 首次运行
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh)
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/main/sing-box.sh)
 ```
 
 * 再次运行
 ```
 sb
 ```
+
+> **Sing-box 1.14+ 兼容说明：** 如果服务日志出现 `implicit default HTTP client ... is deprecated`，说明配置中使用了远程规则集，但没有显式指定下载客户端。v1.3.12 会在新装、升级和再次运行脚本时自动补充兼容配置；Sing-box 1.13 及更早版本不会加载该配置。已经手动设置 `route.default_http_client` 的用户配置会被保留。
 
   | Option 参数      | Remark 备注 |
   | --------------- | ------ |
@@ -182,17 +186,17 @@ sb
 ### 方式1. 最快的安装方式：自动补充所有参数
 #### 中文
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -l
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/main/sing-box.sh) -l
 ```
 
 #### 英文
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -k
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/main/sing-box.sh) -k
 ```
 
 ### 方式2. KV 配置文件，内容参照本库里的 config.conf
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -f config.conf
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/main/sing-box.sh) -f config.conf
 ```
 
 ### 方式3. KV 传参，举例
@@ -202,7 +206,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-b
 <br>
 
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) \
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/main/sing-box.sh) \
   --LANGUAGE c \
   --CHOOSE_PROTOCOLS a \
   --START_PORT 8881 \
@@ -225,7 +229,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-b
 <br>
 
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) \
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/main/sing-box.sh) \
   --LANGUAGE c \
   --CHOOSE_PROTOCOLS a \
   --START_PORT 8881 \
@@ -245,7 +249,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-b
 <br>
 
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) \
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/main/sing-box.sh) \
   --LANGUAGE c \
   --CHOOSE_PROTOCOLS a \
   --START_PORT 8881 \
@@ -266,7 +270,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-b
 <br>
 
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) \
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/main/sing-box.sh) \
   --LANGUAGE c \
   --CHOOSE_PROTOCOLS a \
   --START_PORT 8881 \
@@ -286,7 +290,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-b
 <br>
 
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) \
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/main/sing-box.sh) \
   --LANGUAGE c \
   --CHOOSE_PROTOCOLS a \
   --START_PORT 8881 \
@@ -309,7 +313,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-b
 <br>
 
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) \
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/main/sing-box.sh) \
   --LANGUAGE c \
   --CHOOSE_PROTOCOLS a \
   --START_PORT 8881 \
@@ -331,7 +335,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-b
 <br>
 
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) \
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/main/sing-box.sh) \
   --LANGUAGE c \
   --CHOOSE_PROTOCOLS a \
   --START_PORT 8881 \
@@ -354,7 +358,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-b
 <br>
 
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) \
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/main/sing-box.sh) \
   --LANGUAGE c \
   --CHOOSE_PROTOCOLS a \
   --START_PORT 8881 \
