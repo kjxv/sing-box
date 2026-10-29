@@ -25,6 +25,36 @@
 
 * * *
 ## 1.更新信息
+### v1.3.28-vedio · 2026-10-29 视频固定版
+
+基于上游脚本 **v1.3.28**（提交 `dfb2c18ddb4b4fa85049823c55a0639af88404be`）制作，用于本期视频教程。发布后保留此标签；后续同步或调整将使用其他标签。
+
+| 项目 | 固定内容 |
+| --- | --- |
+| Release / 标签 | [v1.3.28-vedio](https://github.com/kjxv/sing-box/releases/tag/v1.3.28-vedio) |
+| Sing-box 内核 | `1.15.0-alpha.13`，从本仓库内核镜像 Release 下载 |
+| cloudflared | `2026.10.5` |
+| 部署附件 | 本 Release 提供客户端模板、jq、qrencode、cloudflared、WARP 注册脚本、OpenAI 规则集及 Docker s6-overlay |
+| 后续运行 | `sb` 快捷命令继续调用 `v1.3.28-vedio`，不会自动切换到 `main` |
+
+**本 Release 的固定部署命令：**
+
+```bash
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/v1.3.28-vedio/sing-box.sh)
+```
+
+**中文极速安装：**
+
+```bash
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/v1.3.28-vedio/sing-box.sh) -l
+```
+
+`main` 继续用于同步上游；视频和文章应使用以上带标签的链接。默认部署所需的项目附件均从本仓库下载，系统软件包仍来自系统软件源，Cloudflare 等在线服务仍需联网。手动增加的第三方规则集、BBR、ArgoX、sba、TCP Brutal 等附加工具不在默认附件镜像范围内。
+
+本次已完成 Bash 语法检查及有 TUN / 无 TUN 两种基础配置的离线生成检查，检查脚本为 `tests/test-fixed-release.sh`。Release 附件的校验值见 `release-assets.sha256`。这些检查不等同于新版本在目标 VPS 上的完整安装和节点连通测试。
+
+### 上游更新记录
+
 2026.10.22 v1.3.28 sync cloudflared (Argo) in [sb -v], independent from sing-box https://github.com/fscarmen/sing-box/issues/364; [sb -v] 支持同步升级 cloudflared (Argo)，与 Sing-box 相互独立 https://github.com/fscarmen/sing-box/issues/364
 
 2026.10.13 v1.3.27 [sb -d]: switch XTLS reality between xtls-rprx-vision and multiplex; [sb -d] 添加 XTLS reality 的 xtls-rprx-vision 与多路复用相互切换
@@ -192,7 +222,7 @@
 
 * 首次运行
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh)
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/v1.3.28-vedio/sing-box.sh)
 ```
 
 * 再次运行
@@ -211,7 +241,7 @@ sb
   | -d              | Change config 修改参数 |
   | -s              | Stop / Start the Sing-box service 停止/开启 Sing-box 服务 |
   | -a              | Stop / Start the Argo Tunnel service 停止/开启 Argo Tunnel 服务 |
-  | -v              | Sync Sing-box and Cloudflared to the newest 同步 Sing-box 和 Cloudflared 到最新版本 |
+  | -v              | Check/restore the versions pinned by this release 检查或恢复本 Release 固定的 Sing-box 和 Cloudflared 版本 |
   | -b              | Upgrade kernel, turn on BBR, change Linux system 升级内核、安装BBR、DD脚本 |
   | -r              | Add and remove protocols 添加和删除协议 |
 
@@ -237,17 +267,17 @@ sb
 ### 方式1. 最快的安装方式：自动补充所有参数
 #### 中文
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -l
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/v1.3.28-vedio/sing-box.sh) -l
 ```
 
 #### 英文
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -k
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/v1.3.28-vedio/sing-box.sh) -k
 ```
 
 ### 方式2. KV 配置文件，内容参照本库里的 config.conf
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -f config.conf
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/v1.3.28-vedio/sing-box.sh) -f config.conf
 ```
 
 ### 方式3. KV 传参，举例
@@ -257,7 +287,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-b
 <br>
 
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) \
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/v1.3.28-vedio/sing-box.sh) \
   --LANGUAGE c \
   --CHOOSE_PROTOCOLS a \
   --START_PORT 8881 \
@@ -282,7 +312,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-b
 <br>
 
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) \
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/v1.3.28-vedio/sing-box.sh) \
   --LANGUAGE c \
   --CHOOSE_PROTOCOLS a \
   --START_PORT 8881 \
@@ -304,7 +334,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-b
 <br>
 
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) \
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/v1.3.28-vedio/sing-box.sh) \
   --LANGUAGE c \
   --CHOOSE_PROTOCOLS a \
   --START_PORT 8881 \
@@ -327,7 +357,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-b
 <br>
 
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) \
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/v1.3.28-vedio/sing-box.sh) \
   --LANGUAGE c \
   --CHOOSE_PROTOCOLS a \
   --START_PORT 8881 \
@@ -349,7 +379,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-b
 <br>
 
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) \
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/v1.3.28-vedio/sing-box.sh) \
   --LANGUAGE c \
   --CHOOSE_PROTOCOLS a \
   --START_PORT 8881 \
@@ -374,7 +404,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-b
 <br>
 
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) \
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/v1.3.28-vedio/sing-box.sh) \
   --LANGUAGE c \
   --CHOOSE_PROTOCOLS a \
   --START_PORT 8881 \
@@ -398,7 +428,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-b
 <br>
 
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) \
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/v1.3.28-vedio/sing-box.sh) \
   --LANGUAGE c \
   --CHOOSE_PROTOCOLS a \
   --START_PORT 8881 \
@@ -423,7 +453,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-b
 <br>
 
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) \
+bash <(wget -qO- https://raw.githubusercontent.com/kjxv/sing-box/v1.3.28-vedio/sing-box.sh) \
   --LANGUAGE c \
   --CHOOSE_PROTOCOLS a \
   --START_PORT 8881 \

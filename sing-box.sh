@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='v1.3.28 (2026.10.26)'
+VERSION='v1.3.28-vedio (2026.10.29)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://ghproxy.lvedong.eu.org/' 'https://accel.cloudflare.nyc.mn/')
@@ -21,8 +21,14 @@ PROTOCOL_LIST=("XTLS + reality" "hysteria2" "tuic" "ShadowTLS" "shadowsocks" "tr
 NODE_TAG=("xtls-reality" "hysteria2" "tuic" "ShadowTLS" "shadowsocks" "trojan" "vmess-ws" "vless-ws-tls" "h2-reality" "grpc-reality" "anytls" "naive")
 CONSECUTIVE_PORTS=${#PROTOCOL_LIST[@]}
 CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.2020111.xyz" "xn--b6gac.eu.org" "cf.090227.xyz")
-SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
+STABLE_RELEASE_TAG='v1.3.28-vedio'
+RELEASE_BASE='https://github.com/kjxv/sing-box/releases/download'
+DEPENDENCY_RELEASE_BASE="${RELEASE_BASE}/${STABLE_RELEASE_TAG}"
+SUBSCRIBE_CLASH_URL="${DEPENDENCY_RELEASE_BASE}/client-template-clash"
+SUBSCRIBE_CLASH2_URL="${DEPENDENCY_RELEASE_BASE}/client-template-clash2"
+SUBSCRIBE_SING_BOX_URL="${DEPENDENCY_RELEASE_BASE}/client-template-sing-box"
 DEFAULT_NEWEST_VERSION='1.15.0-alpha.13'
+CLOUDFLARED_VERSION='2026.10.5'
 FINGER_PRINT='chrome'
 STEP_NUM=0      # 当前步骤编号（安装流程中动态递增）
 TOTAL_STEPS=''  # 总步骤数（协议确定后动态计算）
@@ -491,10 +497,10 @@ check_cdn() {
   local PROXY CODE PID CMD _url P1 P2 CODE_RAW CODE_REL
   local PIDS=()
   # 探测点1：raw 域（脚本及订阅模板文件下载路径）
-  local RAW_URL='https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh'
+  local RAW_URL="https://raw.githubusercontent.com/kjxv/sing-box/${STABLE_RELEASE_TAG}/sing-box.sh"
   # 探测点2：github releases 域（sing-box / jq / cloudflared 等二进制真实下载路径，
-  # latest 指向永远有效）。修复 IPv6-only / 部分封锁场景：raw 域可达 ≠ releases 域可达，任一域失败都必须走代理
-  local REL_URL='https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64'
+  # 探测同一固定版的自有附件。raw 域可达不代表 releases 域可达，任一域失败都使用代理。
+  local REL_URL="${DEPENDENCY_RELEASE_BASE}/cloudflared-linux-amd64"
 
   # 确定下载工具：优先 wget，次选 curl
   if command -v wget >/dev/null 2>&1; then
@@ -1147,7 +1153,7 @@ change_config() {
       check_arch
       [ ! -e "${WORK_DIR}/qrencode" ] && \
         wget --no-check-certificate --continue --tries=2 --timeout=10 -qO ${WORK_DIR}/qrencode \
-          ${GH_PROXY}https://github.com/fscarmen/client_template/raw/main/qrencode-go/qrencode-go-linux-$QRENCODE_ARCH 2>/dev/null \
+          ${GH_PROXY}${DEPENDENCY_RELEASE_BASE}/qrencode-go-linux-$QRENCODE_ARCH 2>/dev/null \
           && chmod +x ${WORK_DIR}/qrencode
       fetch_nodes_value
       [ -z "$PORT_NGINX" ] && input_nginx_port
@@ -1961,7 +1967,7 @@ custom_route_menu() {
 # 返回 0 成功 / 1 失败（接口无 id 或解析字段缺失），失败时调用方自行兜底
 warp_account_register() {
   local WARP_ACCOUNT="$1"
-  [ -n "$WARP_ACCOUNT" ] || WARP_ACCOUNT=$(timeout 15 bash <(wget -qO- --timeout=5 --tries=1 "https://gitlab.com/fscarmen/warp/-/raw/main/api.sh") --register)
+  [ -n "$WARP_ACCOUNT" ] || WARP_ACCOUNT=$(timeout 15 bash <(wget -qO- --timeout=5 --tries=1 "${DEPENDENCY_RELEASE_BASE}/warp-api.sh") --register)
 
   grep -q '"id"' <<< "$WARP_ACCOUNT" || return 1
 
@@ -2336,9 +2342,9 @@ check_install() {
   # 卸载模式跳过：纯浪费，且网络不通时会白白等待
   if [ "$IS_UNINSTALL" != 'is_uninstall' ]; then
     {
-      wget --no-check-certificate --continue --tries=2 --timeout=10 -qO $TEMP_DIR/clash ${GH_PROXY}${SUBSCRIBE_TEMPLATE}/clash 2>/dev/null &
-      wget --no-check-certificate --continue --tries=2 --timeout=10 -qO $TEMP_DIR/clash2 ${GH_PROXY}${SUBSCRIBE_TEMPLATE}/clash2 2>/dev/null &
-      wget --no-check-certificate --continue --tries=2 --timeout=10 -qO $TEMP_DIR/sing-box-template ${GH_PROXY}${SUBSCRIBE_TEMPLATE}/sing-box 2>/dev/null &
+      wget --no-check-certificate --continue --tries=2 --timeout=10 -qO $TEMP_DIR/clash ${GH_PROXY}${SUBSCRIBE_CLASH_URL} 2>/dev/null &
+      wget --no-check-certificate --continue --tries=2 --timeout=10 -qO $TEMP_DIR/clash2 ${GH_PROXY}${SUBSCRIBE_CLASH2_URL} 2>/dev/null &
+      wget --no-check-certificate --continue --tries=2 --timeout=10 -qO $TEMP_DIR/sing-box-template ${GH_PROXY}${SUBSCRIBE_SING_BOX_URL} 2>/dev/null &
       wait
     } &
   fi
@@ -2351,7 +2357,7 @@ check_install() {
       local SB_DIR="$TEMP_DIR/sing-box-$ONLINE-linux-$SING_BOX_ARCH"
       local SB_BIN="$SB_DIR/sing-box"
       wget --no-check-certificate --continue --tries=2 --timeout=10 \
-        ${GH_PROXY}https://github.com/SagerNet/sing-box/releases/download/v$ONLINE/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz \
+        ${GH_PROXY}${RELEASE_BASE}/v$ONLINE/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz \
         -qO- | tar xz -C $TEMP_DIR 2>/dev/null
       [ -s "$SB_BIN" ] && [ -x "$SB_BIN" ] && mv "$SB_BIN" "$TEMP_DIR/sing-box" && chmod +x "$TEMP_DIR/sing-box"
     } &
@@ -2359,21 +2365,21 @@ check_install() {
     # 任务 2: 下载 jq
     {
       wget --no-check-certificate --continue --tries=2 --timeout=10 -qO $TEMP_DIR/jq \
-        ${GH_PROXY}https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$JQ_ARCH 2>/dev/null \
+        ${GH_PROXY}${DEPENDENCY_RELEASE_BASE}/jq-linux-$JQ_ARCH 2>/dev/null \
         && chmod +x $TEMP_DIR/jq
     } &
 
     # 任务 3: 下载 qrencode
     {
       wget --no-check-certificate --continue --tries=2 --timeout=10 -qO $TEMP_DIR/qrencode \
-        ${GH_PROXY}https://github.com/fscarmen/client_template/raw/main/qrencode-go/qrencode-go-linux-$QRENCODE_ARCH 2>/dev/null \
+        ${GH_PROXY}${DEPENDENCY_RELEASE_BASE}/qrencode-go-linux-$QRENCODE_ARCH 2>/dev/null \
         && chmod +x $TEMP_DIR/qrencode
     } &
 
     # 任务 4: 注册 warp 账号（仅支持 TUN 时才有 warp-ep 出站，无 TUN 时不需注册）
     [ "$IS_TUN" = 'is_tun' ] &&
     {
-      timeout 15 bash <(wget -qO- --timeout=5 --tries=1 "https://gitlab.com/fscarmen/warp/-/raw/main/api.sh") --register > $TEMP_DIR/warp_account.json 2>/dev/null
+      timeout 15 bash <(wget -qO- --timeout=5 --tries=1 "${DEPENDENCY_RELEASE_BASE}/warp-api.sh") --register > $TEMP_DIR/warp_account.json 2>/dev/null
     } &
   elif [ "${STATUS[0]}" != "$(text 26)" ]; then
     # 查 sing-box 进程号，运行时长和内存占用，占用的端口
@@ -2420,7 +2426,7 @@ check_install() {
   # 如果有需要，后台静默下载 cloudflared（卸载模式跳过）
   if [[ "${STATUS[1]}" = "$(text 26)" || "$NONINTERACTIVE_INSTALL" = 'noninteractive_install' ]] && [ ! -s ${WORK_DIR}/cloudflared ] && [ "$IS_UNINSTALL" != 'is_uninstall' ]; then
     {
-      wget --no-check-certificate --tries=2 --timeout=10 -qO $TEMP_DIR/cloudflared ${GH_PROXY}https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/cloudflared >/dev/null 2>&1
+      wget --no-check-certificate --tries=2 --timeout=10 -qO $TEMP_DIR/cloudflared ${GH_PROXY}${DEPENDENCY_RELEASE_BASE}/cloudflared-linux-$ARGO_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/cloudflared >/dev/null 2>&1
     }&
   elif [ "${STATUS[1]}" != "$(text 26)" ]; then
     # 查 Argo 进程号，运行时长和内存占用
@@ -2599,23 +2605,10 @@ check_system_info() {
   fi
 }
 
-# 获取 sing-box 最新版本
+# 获取当前视频版本固定的 sing-box 内核版本
 get_sing_box_version() {
-  local FORCE_VERSION RESULT_VERSION
-  # FORCE_VERSION 用于在 sing-box 某个主程序出现 bug 时，强制为指定版本，以防止运行出错
-  FORCE_VERSION=$(wget --no-check-certificate --tries=2 --timeout=3 -qO- "${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sing-box/refs/heads/main/force_version" 2>&1 | sed 's/^[vV]//g; s/\r//g')
-  if grep -q '.' <<< "$FORCE_VERSION"; then
-    RESULT_VERSION="$FORCE_VERSION"
-  else
-    # 取最新版本（含 alpha / beta / rc 等预发布版）：releases.atom → 失败则 GitHub API → 仍失败则 DEFAULT_NEWEST_VERSION
-    RESULT_VERSION=$(wget --no-check-certificate --tries=2 --timeout=3 -qO- "${GH_PROXY}https://github.com/SagerNet/sing-box/releases.atom" 2>&1 | sed -n '/alternate/ s#.*/tag/v\([^"]\+\)".*#\1#gp' | sort -Vr | sed -n '1p')
-
-    if grep -q '^$' <<< "$RESULT_VERSION"; then
-      RESULT_VERSION=$(wget --no-check-certificate --tries=2 --timeout=3 -qO- "${GH_PROXY}https://api.github.com/repos/SagerNet/sing-box/releases" 2>&1 | awk -F '["v]' '/"tag_name"/ {print $5}' | sort -Vr | sed -n '1p')
-      grep -q '^$' <<< "$RESULT_VERSION" && RESULT_VERSION="$DEFAULT_NEWEST_VERSION"
-    fi
-  fi
-  echo "$RESULT_VERSION"
+  # 当前视频版本固定内核，不读取 main、上游 API 或 latest。
+  echo "$DEFAULT_NEWEST_VERSION"
 }
 
 # 添加端口跳跃
@@ -4269,7 +4262,7 @@ EOF
                 "tag":"geosite-openai",
                 "type":"remote",
                 "format":"binary",
-                "url":"https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-openai.srs"
+                "url":"'"${DEPENDENCY_RELEASE_BASE}"'/geosite-openai.srs"
             }
         ]'
     OPENAI_RULES=",
@@ -5955,7 +5948,7 @@ naive+quic://${UUID[22]}:${UUID[22]}@${SERVER_IP_1}:${PORT_NAIVE}?congestion_con
 
   {
     # 生成 sing-box SFM SFA SFI 订阅文件
-    [ ! -s "$TEMP_DIR/sing-box-template" ] && wget --no-check-certificate --continue --tries=2 --timeout=10 -qO "$TEMP_DIR/sing-box-template" "${GH_PROXY}${SUBSCRIBE_TEMPLATE}/sing-box" 2>/dev/null
+    [ ! -s "$TEMP_DIR/sing-box-template" ] && wget --no-check-certificate --continue --tries=2 --timeout=10 -qO "$TEMP_DIR/sing-box-template" "${GH_PROXY}${SUBSCRIBE_SING_BOX_URL}" 2>/dev/null
     cat $TEMP_DIR/sing-box-template | sed "s#\"<OUTBOUND_REPLACE>\",#$OUTBOUND_REPLACE#; s#\"<NODE_REPLACE>\"#${NODE_REPLACE%,}#g" | ${WORK_DIR}/jq > ${WORK_DIR}/subscribe/sing-box
     rm -f $TEMP_DIR/sing-box-template
   } &>/dev/null
@@ -6119,7 +6112,7 @@ create_shortcut() {
   cat > ${WORK_DIR}/sb.sh << EOF
 #!/usr/bin/env bash
 
-bash <(wget --no-check-certificate -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) \$@
+bash <(wget --no-check-certificate -qO- https://raw.githubusercontent.com/kjxv/sing-box/${STABLE_RELEASE_TAG}/sing-box.sh) "\$@"
 EOF
   chmod +x ${WORK_DIR}/sb.sh
   ln -sf ${WORK_DIR}/sb.sh /usr/bin/sb
@@ -6534,7 +6527,7 @@ version() {
   # Argo (cloudflared) 版本检测：仅在已部署 Argo（守护进程文件存在）时进行
   local ARGO_ONLINE ARGO_LOCAL
   if [ -s ${ARGO_DAEMON_FILE} ]; then
-    ARGO_ONLINE=$(wget --no-check-certificate --tries=2 --timeout=10 -qO- "${GH_PROXY}https://api.github.com/repos/cloudflare/cloudflared/releases/latest" | grep "tag_name" | cut -d \" -f4)
+    ARGO_ONLINE="$CLOUDFLARED_VERSION"
     grep -q '.' <<< "$ARGO_ONLINE" || error " $(text 100) \n"
     ARGO_LOCAL=$(${WORK_DIR}/cloudflared -v | awk '{for (i=1; i<NF; i++) if ($i=="version") {print $(i+1); exit}}')
     local APP=Argo LOCAL="$ARGO_LOCAL" ONLINE="$ARGO_ONLINE"
@@ -6553,7 +6546,7 @@ version() {
 
   # 升级 Argo (cloudflared)
   if [ "${UPDATE[0],,}" = 'y' ]; then
-    wget --no-check-certificate --continue --tries=2 --timeout=10 -qO $TEMP_DIR/cloudflared ${GH_PROXY}https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH 2>/dev/null
+    wget --no-check-certificate --continue --tries=2 --timeout=10 -qO $TEMP_DIR/cloudflared ${GH_PROXY}${DEPENDENCY_RELEASE_BASE}/cloudflared-linux-$ARGO_ARCH 2>/dev/null
     if [ -s $TEMP_DIR/cloudflared ]; then
       cmd_systemctl disable argo
       chmod +x $TEMP_DIR/cloudflared && mv $TEMP_DIR/cloudflared ${WORK_DIR}/cloudflared
@@ -6571,8 +6564,8 @@ version() {
     local SB_UP_URL UP_TRY
     for UP_TRY in 1 2 3; do
       rm -f "$TEMP_DIR/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz" "$TEMP_DIR/sing-box-$ONLINE-linux-$SING_BOX_ARCH"
-      SB_UP_URL="${GH_PROXY}https://github.com/SagerNet/sing-box/releases/download/v$ONLINE/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz"
-      [ "$UP_TRY" -ge 2 ] && SB_UP_URL="https://github.com/SagerNet/sing-box/releases/download/v$ONLINE/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz"
+      SB_UP_URL="${GH_PROXY}${RELEASE_BASE}/v$ONLINE/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz"
+      [ "$UP_TRY" -ge 2 ] && SB_UP_URL="${RELEASE_BASE}/v$ONLINE/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz"
       wget --no-check-certificate --continue --tries=2 --timeout=10 -qO "$TEMP_DIR/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz" "$SB_UP_URL" 2>/dev/null || { sleep 3; continue; }
       [ -s "$TEMP_DIR/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz" ] || { sleep 3; continue; }
       tar xz -C "$TEMP_DIR" -f "$TEMP_DIR/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz" "sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box" 2>/dev/null || { sleep 3; continue; }
