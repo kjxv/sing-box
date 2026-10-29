@@ -15,8 +15,8 @@ RUN set -ex &&\
     armv7) S6_ARCH=armhf ;; \
     *) S6_ARCH=x86_64 ;; \
   esac &&\
-  wget -qO- https://github.com/just-containers/s6-overlay/releases/latest/download/s6-overlay-noarch.tar.xz | tar -C / -Jx &&\
-  wget -qO- https://github.com/just-containers/s6-overlay/releases/latest/download/s6-overlay-$S6_ARCH.tar.xz | tar -C / -Jx
+  wget -qO- https://github.com/kjxv/sing-box/releases/download/v1.3.14/s6-overlay-noarch.tar.xz | tar -C / -Jx &&\
+  wget -qO- https://github.com/kjxv/sing-box/releases/download/v1.3.14/s6-overlay-$S6_ARCH.tar.xz | tar -C / -Jx
 
 # 运行阶段
 FROM alpine:latest

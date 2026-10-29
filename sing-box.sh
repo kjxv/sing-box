@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='v1.3.13 (2026.10.28)'
+VERSION='v1.3.14 (2026.10.29)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
@@ -21,10 +21,14 @@ PROTOCOL_LIST=("XTLS + reality" "hysteria2" "tuic" "ShadowTLS" "shadowsocks" "tr
 NODE_TAG=("xtls-reality" "hysteria2" "tuic" "ShadowTLS" "shadowsocks" "trojan" "vmess-ws" "vless-ws-tls" "h2-reality" "grpc-reality" "anytls" "naive")
 CONSECUTIVE_PORTS=${#PROTOCOL_LIST[@]}
 CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.2020111.xyz" "xn--b6gac.eu.org" "cf.090227.xyz")
-SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
 SING_BOX_CORE_REPO='kjxv/sing-box'
+STABLE_RELEASE_TAG='v1.3.14'
 SING_BOX_CORE_VERSION='1.15.0-alpha.13'
 SING_BOX_CORE_RELEASE_BASE="https://github.com/${SING_BOX_CORE_REPO}/releases/download"
+DEPENDENCY_RELEASE_BASE="${SING_BOX_CORE_RELEASE_BASE}/${STABLE_RELEASE_TAG}"
+SUBSCRIBE_CLASH_URL="${DEPENDENCY_RELEASE_BASE}/client-template-clash"
+SUBSCRIBE_CLASH2_URL="${DEPENDENCY_RELEASE_BASE}/client-template-clash2"
+SUBSCRIBE_SING_BOX_URL="${DEPENDENCY_RELEASE_BASE}/client-template-sing-box"
 DEFAULT_NEWEST_VERSION="$SING_BOX_CORE_VERSION"
 STEP_NUM=0      # 当前步骤编号（安装流程中动态递增）
 TOTAL_STEPS=''  # 总步骤数（协议确定后动态计算）
@@ -1202,9 +1206,9 @@ check_install() {
 
   # 并发下载订阅模板 (clash, clash2, sing-box-template)，在新安装和更换协议时会用到
   {
-    wget --no-check-certificate --continue -qO $TEMP_DIR/clash ${GH_PROXY}${SUBSCRIBE_TEMPLATE}/clash 2>/dev/null &
-    wget --no-check-certificate --continue -qO $TEMP_DIR/clash2 ${GH_PROXY}${SUBSCRIBE_TEMPLATE}/clash2 2>/dev/null &
-    wget --no-check-certificate --continue -qO $TEMP_DIR/sing-box-template ${GH_PROXY}${SUBSCRIBE_TEMPLATE}/sing-box 2>/dev/null &
+    wget --no-check-certificate --continue -qO $TEMP_DIR/clash ${GH_PROXY}${SUBSCRIBE_CLASH_URL} 2>/dev/null &
+    wget --no-check-certificate --continue -qO $TEMP_DIR/clash2 ${GH_PROXY}${SUBSCRIBE_CLASH2_URL} 2>/dev/null &
+    wget --no-check-certificate --continue -qO $TEMP_DIR/sing-box-template ${GH_PROXY}${SUBSCRIBE_SING_BOX_URL} 2>/dev/null &
     wait
   } &
 
@@ -1224,14 +1228,14 @@ check_install() {
     # 任务 2: 下载 jq
     {
       wget --no-check-certificate --continue -qO $TEMP_DIR/jq \
-        ${GH_PROXY}https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$JQ_ARCH 2>/dev/null \
+        ${GH_PROXY}${DEPENDENCY_RELEASE_BASE}/jq-linux-$JQ_ARCH 2>/dev/null \
         && chmod +x $TEMP_DIR/jq
     } &
 
     # 任务 3: 下载 qrencode
     {
       wget --no-check-certificate --continue -qO $TEMP_DIR/qrencode \
-        ${GH_PROXY}https://github.com/fscarmen/client_template/raw/main/qrencode-go/qrencode-go-linux-$QRENCODE_ARCH 2>/dev/null \
+        ${GH_PROXY}${DEPENDENCY_RELEASE_BASE}/qrencode-go-linux-$QRENCODE_ARCH 2>/dev/null \
         && chmod +x $TEMP_DIR/qrencode
     } &
 
@@ -1280,7 +1284,7 @@ check_install() {
   # 如果有需要，后台静默下载 cloudflared
   if [[ "${STATUS[1]}" = "$(text 26)" || "$NONINTERACTIVE_INSTALL" = 'noninteractive_install' ]] && [ ! -s ${WORK_DIR}/cloudflared ]; then
     {
-      wget --no-check-certificate -qO $TEMP_DIR/cloudflared ${GH_PROXY}https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/cloudflared >/dev/null 2>&1
+      wget --no-check-certificate -qO $TEMP_DIR/cloudflared ${GH_PROXY}${DEPENDENCY_RELEASE_BASE}/cloudflared-linux-$ARGO_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/cloudflared >/dev/null 2>&1
     }&
   elif [ "${STATUS[1]}" != "$(text 26)" ]; then
     # 查 Argo 进程号，运行时长和内存占用
@@ -1417,14 +1421,8 @@ check_system_info() {
 
 # 获取 kjxv 仓库固定的 sing-box 内核版本
 get_sing_box_version() {
-  # force_version 允许维护者在不改脚本的情况下切换已镜像版本；读取失败时使用脚本内置版本。
-  local FORCE_VERSION=$(wget --no-check-certificate --tries=2 --timeout=3 -qO- ${GH_PROXY}https://raw.githubusercontent.com/kjxv/sing-box/refs/heads/main/force_version | sed 's/^[vV]//g; s/\r//g')
-  if grep -q '.' <<< "$FORCE_VERSION"; then
-    local RESULT_VERSION="$FORCE_VERSION"
-  else
-    local RESULT_VERSION="$DEFAULT_NEWEST_VERSION"
-  fi
-  echo "$RESULT_VERSION"
+  # 视频教程版本必须可重现：不读取 main 或上游状态，只使用当前标签内固定的内核版本。
+  echo "$DEFAULT_NEWEST_VERSION"
 }
 
 # 判断当前 Sing-box 版本是否达到指定版本
@@ -2814,7 +2812,7 @@ EOF
                 "tag":"geosite-openai",
                 "type":"remote",
                 "format":"binary",
-                "url":"https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-openai.srs"
+                "url":"${DEPENDENCY_RELEASE_BASE}/geosite-openai.srs"
             }
         ],
         "rules":[
@@ -4311,7 +4309,7 @@ naive+quic://${UUID[22]}:${UUID[22]}@${SERVER_IP_1}:${PORT_NAIVE}?congestion_con
 
   {
     # 生成 sing-box SFM SFA SFI 订阅文件
-    [ ! -s "$TEMP_DIR/sing-box-template" ] && wget --no-check-certificate --continue -qO "$TEMP_DIR/sing-box-template" "${GH_PROXY}${SUBSCRIBE_TEMPLATE}/sing-box" 2>/dev/null
+    [ ! -s "$TEMP_DIR/sing-box-template" ] && wget --no-check-certificate --continue -qO "$TEMP_DIR/sing-box-template" "${GH_PROXY}${SUBSCRIBE_SING_BOX_URL}" 2>/dev/null
     cat $TEMP_DIR/sing-box-template | sed "s#\"<OUTBOUND_REPLACE>\",#$OUTBOUND_REPLACE#; s#\"<NODE_REPLACE>\"#${NODE_REPLACE%,}#g" | ${WORK_DIR}/jq > ${WORK_DIR}/subscribe/sing-box
     rm -f $TEMP_DIR/sing-box-template
   } &>/dev/null
@@ -4452,7 +4450,7 @@ create_shortcut() {
   cat > ${WORK_DIR}/sb.sh << EOF
 #!/usr/bin/env bash
 
-bash <(wget --no-check-certificate -qO- https://raw.githubusercontent.com/kjxv/sing-box/main/sing-box.sh) "\$@"
+bash <(wget --no-check-certificate -qO- https://raw.githubusercontent.com/kjxv/sing-box/${STABLE_RELEASE_TAG}/sing-box.sh) "\$@"
 EOF
   chmod +x ${WORK_DIR}/sb.sh
   ln -sf ${WORK_DIR}/sb.sh /usr/bin/sb

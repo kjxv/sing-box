@@ -4,7 +4,13 @@ set -e
 
 WORK_DIR=/sing-box
 PORT=$START_PORT
-SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
+SING_BOX_CORE_REPO='kjxv/sing-box'
+STABLE_RELEASE_TAG='v1.3.14'
+SING_BOX_CORE_VERSION='1.15.0-alpha.13'
+RELEASE_BASE="https://github.com/${SING_BOX_CORE_REPO}/releases/download"
+DEPENDENCY_RELEASE_BASE="${RELEASE_BASE}/${STABLE_RELEASE_TAG}"
+SUBSCRIBE_CLASH_URL="${DEPENDENCY_RELEASE_BASE}/client-template-clash"
+SUBSCRIBE_SING_BOX_URL="${DEPENDENCY_RELEASE_BASE}/client-template-sing-box"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }  # 红色
@@ -26,17 +32,7 @@ esac
 
 # 检查 sing-box 最新版本
 check_latest_sing-box() {
-  # 检查是否强制指定版本
-  local FORCE_VERSION=$(wget --no-check-certificate --tries=2 --timeout=3 -qO- https://raw.githubusercontent.com/fscarmen/sing-box/refs/heads/main/force_version | sed 's/^[vV]//g')
-
-  # 没有强制指定版本时，获取最新版本
-  grep -q '.' <<< "$FORCE_VERSION" || local FORCE_VERSION=$(wget --no-check-certificate --tries=2 --timeout=3 -qO- https://api.github.com/repos/SagerNet/sing-box/releases | awk -F '["v-]' '/tag_name/{print $5}' | sort -Vr | sed -n '1p')
-
-  # 获取最终版本号
-  local VERSION=$(wget --no-check-certificate --tries=2 --timeout=3 -qO- https://api.github.com/repos/SagerNet/sing-box/releases | awk -F '["v]' -v var="tag_name.*$FORCE_VERSION" '$0 ~ var {print $5; exit}')
-  VERSION=${VERSION:-'1.13.0-rc.4'}
-
-  echo "$VERSION"
+  echo "$SING_BOX_CORE_VERSION"
 }
 
 # 安装 sing-box 容器
@@ -44,19 +40,19 @@ install() {
   # 下载 sing-box
   echo "正在下载 sing-box ..."
   local ONLINE=$(check_latest_sing-box)
-  wget https://github.com/SagerNet/sing-box/releases/download/v$ONLINE/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz -O- | tar xz -C ${WORK_DIR} sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box && mv ${WORK_DIR}/sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box ${WORK_DIR}/sing-box && rm -rf ${WORK_DIR}/sing-box-$ONLINE-linux-$SING_BOX_ARCH
+  wget ${RELEASE_BASE}/v$ONLINE/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz -O- | tar xz -C ${WORK_DIR} sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box && mv ${WORK_DIR}/sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box ${WORK_DIR}/sing-box && rm -rf ${WORK_DIR}/sing-box-$ONLINE-linux-$SING_BOX_ARCH
 
   # 下载 jq
   echo "正在下载 jq ..."
-  wget -O ${WORK_DIR}/jq https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$JQ_ARCH && chmod +x ${WORK_DIR}/jq
+  wget -O ${WORK_DIR}/jq ${DEPENDENCY_RELEASE_BASE}/jq-linux-$JQ_ARCH && chmod +x ${WORK_DIR}/jq
 
   # 下载 qrencode
   echo "正在下载 qrencode ..."
-  wget -O ${WORK_DIR}/qrencode https://github.com/fscarmen/client_template/raw/main/qrencode-go/qrencode-go-linux-$QRENCODE_ARCH && chmod +x ${WORK_DIR}/qrencode
+  wget -O ${WORK_DIR}/qrencode ${DEPENDENCY_RELEASE_BASE}/qrencode-go-linux-$QRENCODE_ARCH && chmod +x ${WORK_DIR}/qrencode
 
   # 下载 cloudflared
   echo "正在下载 cloudflared ..."
-  wget -O ${WORK_DIR}/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH && chmod +x ${WORK_DIR}/cloudflared
+  wget -O ${WORK_DIR}/cloudflared ${DEPENDENCY_RELEASE_BASE}/cloudflared-linux-$ARGO_ARCH && chmod +x ${WORK_DIR}/cloudflared
 
   # 生成100年的自签证书，区分使用 IPv4 / IPv6 / 域名
   echo "生成自签证书 ..."
@@ -223,7 +219,7 @@ EOF
                 "tag":"geosite-openai",
                 "type":"remote",
                 "format":"binary",
-                "url":"https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-openai.srs"
+                "url":"${DEPENDENCY_RELEASE_BASE}/geosite-openai.srs"
             }
         ],
         "rules":[
@@ -1042,7 +1038,7 @@ EOF
 
   # 生成 clash 订阅配置文件
   # 模板: 使用 proxy providers
-  wget -qO- --tries=3 --timeout=2 ${SUBSCRIBE_TEMPLATE}/clash | sed "s#NODE_NAME#${NODE_NAME}#g; s#PROXY_PROVIDERS_URL#https://${ARGO_DOMAIN}/${UUID}/proxies#" > ${WORK_DIR}/subscribe/clash
+  wget -qO- --tries=3 --timeout=2 ${SUBSCRIBE_CLASH_URL} | sed "s#NODE_NAME#${NODE_NAME}#g; s#PROXY_PROVIDERS_URL#https://${ARGO_DOMAIN}/${UUID}/proxies#" > ${WORK_DIR}/subscribe/clash
 
   # 生成 ShadowRocket 订阅配置文件
   [ "${XTLS_REALITY}" = 'true' ] && local SHADOWROCKET_SUBSCRIBE+="
@@ -1276,7 +1272,7 @@ anytls://${UUID}@${SERVER_IP_1}:${PORT_ANYTLS}?security=tls&sni=addons.mozilla.o
   local NODE_REPLACE+="\"${NODE_NAME} anytls\","
 
   # 模板
-  local SING_BOX_JSON=$(wget -qO- --tries=3 --timeout=2 ${SUBSCRIBE_TEMPLATE}/sing-box)
+  local SING_BOX_JSON=$(wget -qO- --tries=3 --timeout=2 ${SUBSCRIBE_SING_BOX_URL})
 
   echo $SING_BOX_JSON | sed "s#\"<OUTBOUND_REPLACE>\",#$OUTBOUND_REPLACE#; s#\"<NODE_REPLACE>\"#${NODE_REPLACE%,}#g" | ${WORK_DIR}/jq > ${WORK_DIR}/subscribe/sing-box
 
@@ -1400,7 +1396,7 @@ update_sing-box() {
   if [ -n "$ONLINE" ]; then
     if [[ "$ONLINE" != "$LOCAL" ]]; then
       cp -f ${WORK_DIR}/sing-box /tmp/sing-box.bak
-      wget https://github.com/SagerNet/sing-box/releases/download/v$ONLINE/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz -O- | tar xz -C /tmp sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box
+      wget ${RELEASE_BASE}/v$ONLINE/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz -O- | tar xz -C /tmp sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box
       mv /tmp/sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box ${WORK_DIR}/sing-box
       local SING_BOX_PID_OLD=$(ps aux | grep '[s]ing-box run' | awk '{print $1}')
       kill -9 ${SING_BOX_PID_OLD}
